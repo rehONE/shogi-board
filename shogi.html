@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>将棋 - Сёги</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700;900&family=Zen+Kaku+Gothic+Antique:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-main: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-board: #e8d5b7;
+            --bg-board-dark: #d4c5a9;
+            --text-main: #f5f5dc;
+            --text-dark: #2c2c2c;
+            --accent-black: #000000;
+            --accent-beige: #f5f5dc;
+            --accent-gold: #c9a961;
+            --shadow-light: rgba(245, 245, 220, 0.1);
+            --shadow-dark: rgba(0, 0, 0, 0.6);
+            --danger: #8b0000;
+        }
+
+        body {
+            font-family: 'Zen Kaku Gothic Antique', sans-serif;
+            background: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(ellipse at top, rgba(245, 245, 220, 0.03) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(201, 169, 97, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        #root {
+            position: relative;
+            z-index: 1;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .title {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-beige) 0%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 4px 20px rgba(245, 245, 220, 0.2);
+            margin-bottom: 10px;
+            letter-spacing: 0.15em;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-main);
+            opacity: 0.7;
+            letter-spacing: 0.1em;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeIn 1s ease-out 0.3s both;
+        }
+
+        .board-section {
+            flex: 0 0 auto;
+        }
+
+        .player-info {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(26, 26, 26, 0.8) 100%);
+            border: 2px solid rgba(201, 169, 97, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px var(--shadow-dark);
+        }
+
+        .player-name {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-beige);
+            box-shadow: 0 0 15px var(--accent-beige);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .player-indicator.inactive {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: none;
+            animation: none;
+        }
+
+        .captured-pieces {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            min-height: 40px;
+        }
+
+        .board-wrapper {
+            position: relative;
+            background: linear-gradient(135deg, #d4c5a9 0%, #e8d5b7 50%, #d4c5a9 100%);
+            padding: 30px;
+            border-radius: 4px;
+            box-shadow: 
+                0 15px 50px var(--shadow-dark),
+                inset 0 2px 4px rgba(255, 255, 255, 0.15);
+        }
+
+        .board-coords {
+            position: absolute;
+            font-family: 'Noto Serif JP', serif;
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+
+        .board-coords.top {
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 40px;
+        }
+
+        .board-coords.right {
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            grid-template-rows: repeat(9, 50px);
+            gap: 0;
+            background: var(--bg-board);
+            border: 3px solid var(--accent-black);
+            box-shadow: 
+                0 10px 30px var(--shadow-dark),
+                inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            border: 0.5px solid rgba(44, 44, 44, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            background: var(--bg-board);
+        }
+
+        .cell:hover {
+            background: rgba(201, 169, 97, 0.15);
+        }
+
+        .cell.selected {
+            background: rgba(245, 245, 220, 0.25);
+            box-shadow: inset 0 0 15px rgba(245, 245, 220, 0.3);
+        }
+
+        .cell.valid-move {
+            background: rgba(201, 169, 97, 0.2);
+        }
+
+        .cell.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: rgba(201, 169, 97, 0.6);
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .cell.in-check {
+            background: rgba(139, 0, 0, 0.25);
+            animation: checkPulse 1.5s ease-in-out infinite;
+        }
+
+        .cell.promotion-zone-black {
+            background: linear-gradient(135deg, 
+                rgba(0, 0, 0, 0.03) 0%, 
+                var(--bg-board) 100%);
+        }
+
+        .cell.promotion-zone-white {
+            background: linear-gradient(135deg, 
+                var(--bg-board) 0%, 
+                rgba(0, 0, 0, 0.03) 100%);
+        }
+
+        .piece {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--accent-black);
+            width: 40px;
+            height: 48px;
+            background: linear-gradient(145deg, #f5f5dc 0%, #e8e4d0 100%);
+            border: 2px solid var(--accent-black);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 
+                0 4px 10px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            transition: all 0.2s ease;
+            cursor: grab;
+            position: relative;
+            user-select: none;
+        }
+
+        .piece::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 7px solid var(--accent-black);
+        }
+
+        .piece.white {
+            transform: rotate(180deg);
+        }
+
+        .piece.promoted {
+            background: linear-gradient(145deg, #fffacd 0%, #f0e68c 100%);
+            border-color: var(--accent-black);
+            color: var(--danger);
+            font-weight: 900;
+        }
+
+        .piece:hover {
+            transform: scale(1.08);
+            box-shadow: 
+                0 6px 15px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+        }
+
+        .piece.white:hover {
+            transform: rotate(180deg) scale(1.08);
+        }
+
+        .piece.dragging {
+            opacity: 0.6;
+            cursor: grabbing;
+            transform: scale(1.15);
+            z-index: 1000;
+        }
+
+        .piece.white.dragging {
+            transform: rotate(180deg) scale(1.15);
+        }
+
+        .mini-piece {
+            font-family: 'Noto Serif JP', serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--accent-black);
+            width: 28px;
+            height: 34px;
+            background: linear-gradient(145deg, #f5f5dc 0%, #e8e4d0 100%);
+            border: 1.5px solid var(--accent-black);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .mini-piece:hover {
+            transform: scale(1.12);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .controls {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(26, 26, 26, 0.8) 100%);
+            border: 2px solid rgba(201, 169, 97, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+            box-shadow: 0 4px 20px var(--shadow-dark);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--accent-gold);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .button {
+            width: 100%;
+            padding: 12px 20px;
+            font-family: 'Zen Kaku Gothic Antique', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            border: 2px solid var(--accent-beige);
+            background: linear-gradient(135deg, var(--accent-black) 0%, #1a1a1a 100%);
+            color: var(--accent-beige);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 10px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(245, 245, 220, 0.2);
+            background: linear-gradient(135deg, #1a1a1a 0%, var(--accent-black) 100%);
+            border-color: var(--accent-gold);
+        }
+
+        .button:active {
+            transform: translateY(0);
+        }
+
+        .button.secondary {
+            background: linear-gradient(135deg, rgba(201, 169, 97, 0.15) 0%, rgba(201, 169, 97, 0.05) 100%);
+            border-color: rgba(201, 169, 97, 0.4);
+        }
+
+        .button.secondary:hover {
+            background: linear-gradient(135deg, rgba(201, 169, 97, 0.25) 0%, rgba(201, 169, 97, 0.15) 100%);
+            box-shadow: 0 8px 20px rgba(201, 169, 97, 0.2);
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .mode-button {
+            flex: 1;
+            padding: 10px;
+            font-family: 'Zen Kaku Gothic Antique', sans-serif;
+            font-weight: 700;
+            border: 2px solid rgba(201, 169, 97, 0.3);
+            background: rgba(201, 169, 97, 0.08);
+            color: var(--text-main);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .mode-button.active {
+            background: var(--accent-gold);
+            color: var(--accent-black);
+            border-color: var(--accent-gold);
+        }
+
+        .mode-button:hover {
+            background: rgba(201, 169, 97, 0.18);
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(245, 245, 220, 0.1) 0%, rgba(201, 169, 97, 0.1) 100%);
+            border: 2px solid rgba(201, 169, 97, 0.3);
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .status.check {
+            background: linear-gradient(135deg, rgba(139, 0, 0, 0.2) 0%, rgba(139, 0, 0, 0.1) 100%);
+            border-color: var(--danger);
+            color: #ff6b6b;
+            animation: checkPulse 1.5s ease-in-out infinite;
+        }
+
+        .status.checkmate {
+            background: linear-gradient(135deg, rgba(139, 0, 0, 0.3) 0%, rgba(139, 0, 0, 0.2) 100%);
+            border-color: var(--danger);
+            color: #ff4444;
+            font-size: 1.3rem;
+        }
+
+        .promotion-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1a1a1a 0%, var(--bg-main) 100%);
+            border: 3px solid var(--accent-gold);
+            border-radius: 12px;
+            padding: 30px;
+            z-index: 1000;
+            box-shadow: 0 15px 60px rgba(0, 0, 0, 0.8);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .promotion-dialog h3 {
+            font-family: 'Noto Serif JP', serif;
+            color: var(--accent-gold);
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.5rem;
+        }
+
+        .promotion-options {
+            display: flex;
+            gap: 15px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -60%);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.15);
+            }
+        }
+
+        @keyframes checkPulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2.5rem;
+            }
+
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .board {
+                grid-template-columns: repeat(9, 40px);
+                grid-template-rows: repeat(9, 40px);
+            }
+
+            .cell {
+                width: 40px;
+                height: 40px;
+            }
+
+            .piece {
+                width: 32px;
+                height: 38px;
+                font-size: 1.2rem;
+            }
+
+            .controls {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        const PIECES = {
+            K: { name: '王', display: '王', canPromote: false, value: 10000 },
+            G: { name: '金', display: '金', canPromote: false, value: 600 },
+            S: { name: '銀', display: '銀', canPromote: true, promoted: '+銀', value: 500 },
+            N: { name: '桂', display: '桂', canPromote: true, promoted: '+桂', value: 400 },
+            L: { name: '香', display: '香', canPromote: true, promoted: '+香', value: 400 },
+            R: { name: '飛', display: '飛', canPromote: true, promoted: '龍', value: 1000 },
+            B: { name: '角', display: '角', canPromote: true, promoted: '馬', value: 900 },
+            P: { name: '歩', display: '歩', canPromote: true, promoted: 'と', value: 100 },
+        };
+
+        function ShogiGame() {
+            const [board, setBoard] = useState(initializeBoard());
+            const [currentPlayer, setCurrentPlayer] = useState('black');
+            const [selectedPiece, setSelectedPiece] = useState(null);
+            const [validMoves, setValidMoves] = useState([]);
+            const [capturedPieces, setCapturedPieces] = useState({ black: [], white: [] });
+            const [gameMode, setGameMode] = useState('pvp');
+            const [gameStatus, setGameStatus] = useState('Ход чёрных');
+            const [promotionDialog, setPromotionDialog] = useState(null);
+            const [gameStarted, setGameStarted] = useState(false);
+            const [inCheck, setInCheck] = useState(false);
+            const [checkmate, setCheckmate] = useState(false);
+            const [kingPosition, setKingPosition] = useState({ black: null, white: null });
+            const [draggedPiece, setDraggedPiece] = useState(null);
+
+            function initializeBoard() {
+                const board = Array(9).fill(null).map(() => Array(9).fill(null));
+                
+                board[0][0] = { type: 'L', player: 'white', promoted: false };
+                board[0][1] = { type: 'N', player: 'white', promoted: false };
+                board[0][2] = { type: 'S', player: 'white', promoted: false };
+                board[0][3] = { type: 'G', player: 'white', promoted: false };
+                board[0][4] = { type: 'K', player: 'white', promoted: false };
+                board[0][5] = { type: 'G', player: 'white', promoted: false };
+                board[0][6] = { type: 'S', player: 'white', promoted: false };
+                board[0][7] = { type: 'N', player: 'white', promoted: false };
+                board[0][8] = { type: 'L', player: 'white', promoted: false };
+                board[1][1] = { type: 'R', player: 'white', promoted: false };
+                board[1][7] = { type: 'B', player: 'white', promoted: false };
+                for (let i = 0; i < 9; i++) {
+                    board[2][i] = { type: 'P', player: 'white', promoted: false };
+                }
+
+                board[8][0] = { type: 'L', player: 'black', promoted: false };
+                board[8][1] = { type: 'N', player: 'black', promoted: false };
+                board[8][2] = { type: 'S', player: 'black', promoted: false };
+                board[8][3] = { type: 'G', player: 'black', promoted: false };
+                board[8][4] = { type: 'K', player: 'black', promoted: false };
+                board[8][5] = { type: 'G', player: 'black', promoted: false };
+                board[8][6] = { type: 'S', player: 'black', promoted: false };
+                board[8][7] = { type: 'N', player: 'black', promoted: false };
+                board[8][8] = { type: 'L', player: 'black', promoted: false };
+                board[7][7] = { type: 'R', player: 'black', promoted: false };
+                board[7][1] = { type: 'B', player: 'black', promoted: false };
+                for (let i = 0; i < 9; i++) {
+                    board[6][i] = { type: 'P', player: 'black', promoted: false };
+                }
+
+                return board;
+            }
+
+            function findKings(board) {
+                let blackKing = null;
+                let whiteKing = null;
+                
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const piece = board[r][c];
+                        if (piece && piece.type === 'K') {
+                            if (piece.player === 'black') {
+                                blackKing = [r, c];
+                            } else {
+                                whiteKing = [r, c];
+                            }
+                        }
+                    }
+                }
+                
+                return { black: blackKing, white: whiteKing };
+            }
+
+            useEffect(() => {
+                const kings = findKings(board);
+                setKingPosition(kings);
+                
+                const inCheckNow = isKingInCheck(board, currentPlayer);
+                setInCheck(inCheckNow);
+                
+                if (inCheckNow) {
+                    const hasValidMoves = hasAnyValidMoves(board, currentPlayer);
+                    if (!hasValidMoves) {
+                        setCheckmate(true);
+                        const winner = currentPlayer === 'black' ? 'Белые' : 'Чёрные';
+                        setGameStatus(`Мат! Победили ${winner}!`);
+                    } else {
+                        setGameStatus(`Шах ${currentPlayer === 'black' ? 'чёрным' : 'белым'}!`);
+                    }
+                }
+            }, [board, currentPlayer]);
+
+            function getPieceMoves(piece, row, col, testBoard = board) {
+                const moves = [];
+                const direction = piece.player === 'black' ? -1 : 1;
+
+                if (piece.promoted) {
+                    if (piece.type === 'P' || piece.type === 'L' || piece.type === 'N' || piece.type === 'S') {
+                        const goldMoves = [
+                            [direction, 0], [direction, -1], [direction, 1],
+                            [0, -1], [0, 1], [-direction, 0]
+                        ];
+                        goldMoves.forEach(([dr, dc]) => {
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            if (isValidPosition(newRow, newCol)) {
+                                moves.push([newRow, newCol]);
+                            }
+                        });
+                    } else if (piece.type === 'R') {
+                        addSlidingMoves(moves, row, col, [[1, 0], [-1, 0], [0, 1], [0, -1]], testBoard);
+                        [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dr, dc]) => {
+                            if (isValidPosition(row + dr, col + dc)) {
+                                moves.push([row + dr, col + dc]);
+                            }
+                        });
+                    } else if (piece.type === 'B') {
+                        addSlidingMoves(moves, row, col, [[1, 1], [1, -1], [-1, 1], [-1, -1]], testBoard);
+                        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
+                            if (isValidPosition(row + dr, col + dc)) {
+                                moves.push([row + dr, col + dc]);
+                            }
+                        });
+                    }
+                } else {
+                    switch (piece.type) {
+                        case 'K':
+                            [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]].forEach(([dr, dc]) => {
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (isValidPosition(newRow, newCol)) {
+                                    moves.push([newRow, newCol]);
+                                }
+                            });
+                            break;
+
+                        case 'G':
+                            const goldMoves = [
+                                [direction, 0], [direction, -1], [direction, 1],
+                                [0, -1], [0, 1], [-direction, 0]
+                            ];
+                            goldMoves.forEach(([dr, dc]) => {
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (isValidPosition(newRow, newCol)) {
+                                    moves.push([newRow, newCol]);
+                                }
+                            });
+                            break;
+
+                        case 'S':
+                            const silverMoves = [
+                                [direction, -1], [direction, 0], [direction, 1],
+                                [-direction, -1], [-direction, 1]
+                            ];
+                            silverMoves.forEach(([dr, dc]) => {
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (isValidPosition(newRow, newCol)) {
+                                    moves.push([newRow, newCol]);
+                                }
+                            });
+                            break;
+
+                        case 'N':
+                            [[direction * 2, -1], [direction * 2, 1]].forEach(([dr, dc]) => {
+                                const newRow = row + dr;
+                                const newCol = col + dc;
+                                if (isValidPosition(newRow, newCol)) {
+                                    moves.push([newRow, newCol]);
+                                }
+                            });
+                            break;
+
+                        case 'L':
+                            for (let i = 1; i < 9; i++) {
+                                const newRow = row + (direction * i);
+                                if (!addMoveIfValid(moves, newRow, col, row, col, testBoard)) break;
+                            }
+                            break;
+
+                        case 'R':
+                            addSlidingMoves(moves, row, col, [[1, 0], [-1, 0], [0, 1], [0, -1]], testBoard);
+                            break;
+
+                        case 'B':
+                            addSlidingMoves(moves, row, col, [[1, 1], [1, -1], [-1, 1], [-1, -1]], testBoard);
+                            break;
+
+                        case 'P':
+                            const pawnRow = row + direction;
+                            if (isValidPosition(pawnRow, col)) {
+                                moves.push([pawnRow, col]);
+                            }
+                            break;
+                    }
+                }
+
+                return moves.filter(([r, c]) => {
+                    const targetPiece = testBoard[r][c];
+                    return !targetPiece || targetPiece.player !== piece.player;
+                });
+            }
+
+            function addSlidingMoves(moves, row, col, directions, testBoard) {
+                directions.forEach(([dr, dc]) => {
+                    for (let i = 1; i < 9; i++) {
+                        if (!addMoveIfValid(moves, row + dr * i, col + dc * i, row, col, testBoard)) break;
+                    }
+                });
+            }
+
+            function addMoveIfValid(moves, row, col, fromRow, fromCol, testBoard) {
+                if (!isValidPosition(row, col)) return false;
+                const piece = testBoard[row][col];
+                if (piece && piece.player === testBoard[fromRow][fromCol].player) return false;
+                moves.push([row, col]);
+                return !piece;
+            }
+
+            function isValidPosition(row, col) {
+                return row >= 0 && row < 9 && col >= 0 && col < 9;
+            }
+
+            function isKingInCheck(testBoard, player) {
+                const kings = findKings(testBoard);
+                const kingPos = kings[player];
+                
+                if (!kingPos) return false;
+
+                const opponent = player === 'black' ? 'white' : 'black';
+                
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const piece = testBoard[r][c];
+                        if (piece && piece.player === opponent) {
+                            const moves = getPieceMoves(piece, r, c, testBoard);
+                            if (moves.some(([mr, mc]) => mr === kingPos[0] && mc === kingPos[1])) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                
+                return false;
+            }
+
+            function isMoveLegal(fromRow, fromCol, toRow, toCol, testBoard = board) {
+                const newBoard = testBoard.map(row => [...row]);
+                const piece = newBoard[fromRow][fromCol];
+                
+                newBoard[toRow][toCol] = piece;
+                newBoard[fromRow][fromCol] = null;
+                
+                return !isKingInCheck(newBoard, piece.player);
+            }
+
+            function hasAnyValidMoves(testBoard, player) {
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const piece = testBoard[r][c];
+                        if (piece && piece.player === player) {
+                            const moves = getPieceMoves(piece, r, c, testBoard);
+                            for (const [toRow, toCol] of moves) {
+                                if (isMoveLegal(r, c, toRow, toCol, testBoard)) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (capturedPieces[player].length > 0) {
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            if (!testBoard[r][c]) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                
+                return false;
+            }
+
+            function canPromote(piece, toRow) {
+                if (!PIECES[piece.type].canPromote || piece.promoted) return false;
+                const promotionZone = piece.player === 'black' ? [0, 1, 2] : [6, 7, 8];
+                return promotionZone.includes(toRow);
+            }
+
+            function mustPromote(piece, toRow) {
+                if (piece.promoted) return false;
+                
+                if (piece.player === 'black') {
+                    if (piece.type === 'P' && toRow === 0) return true;
+                    if (piece.type === 'L' && toRow === 0) return true;
+                    if (piece.type === 'N' && (toRow === 0 || toRow === 1)) return true;
+                } else {
+                    if (piece.type === 'P' && toRow === 8) return true;
+                    if (piece.type === 'L' && toRow === 8) return true;
+                    if (piece.type === 'N' && (toRow === 8 || toRow === 7)) return true;
+                }
+                return false;
+            }
+
+            function handleCellClick(row, col) {
+                if (checkmate || (gameMode === 'pve' && currentPlayer === 'white')) return;
+
+                if (selectedPiece) {
+                    if (selectedPiece.fromHand) {
+                        handleDropMove(row, col);
+                    } else {
+                        const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
+                        if (isValidMove && isMoveLegal(selectedPiece.row, selectedPiece.col, row, col)) {
+                            makeMove(selectedPiece.row, selectedPiece.col, row, col);
+                        }
+                        setSelectedPiece(null);
+                        setValidMoves([]);
+                    }
+                } else {
+                    const piece = board[row][col];
+                    if (piece && piece.player === currentPlayer) {
+                        setSelectedPiece({ row, col, piece });
+                        const moves = getPieceMoves(piece, row, col);
+                        const legalMoves = moves.filter(([toRow, toCol]) => 
+                            isMoveLegal(row, col, toRow, toCol)
+                        );
+                        setValidMoves(legalMoves);
+                    }
+                }
+            }
+
+            function handleDragStart(e, row, col) {
+                if (checkmate || (gameMode === 'pve' && currentPlayer === 'white')) {
+                    e.preventDefault();
+                    return;
+                }
+
+                const piece = board[row][col];
+                if (!piece || piece.player !== currentPlayer) {
+                    e.preventDefault();
+                    return;
+                }
+
+                setDraggedPiece({ row, col, piece });
+                setSelectedPiece({ row, col, piece });
+                const moves = getPieceMoves(piece, row, col);
+                const legalMoves = moves.filter(([toRow, toCol]) => 
+                    isMoveLegal(row, col, toRow, toCol)
+                );
+                setValidMoves(legalMoves);
+
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', `${row},${col}`);
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+
+            function handleDrop(e, toRow, toCol) {
+                e.preventDefault();
+                
+                if (!draggedPiece) return;
+
+                const isValidMove = validMoves.some(([r, c]) => r === toRow && c === toCol);
+                if (isValidMove && isMoveLegal(draggedPiece.row, draggedPiece.col, toRow, toCol)) {
+                    makeMove(draggedPiece.row, draggedPiece.col, toRow, toCol);
+                }
+
+                setDraggedPiece(null);
+                setSelectedPiece(null);
+                setValidMoves([]);
+            }
+
+            function handleDragEnd() {
+                setDraggedPiece(null);
+            }
+
+            function makeMove(fromRow, fromCol, toRow, toCol, promote = false) {
+                const newBoard = board.map(row => [...row]);
+                const piece = newBoard[fromRow][fromCol];
+                const capturedPiece = newBoard[toRow][toCol];
+
+                if (capturedPiece) {
+                    const newCaptured = { ...capturedPieces };
+                    const basePiece = { 
+                        type: capturedPiece.type, 
+                        player: currentPlayer 
+                    };
+                    newCaptured[currentPlayer].push(basePiece);
+                    setCapturedPieces(newCaptured);
+                }
+
+                newBoard[toRow][toCol] = { ...piece };
+                newBoard[fromRow][fromCol] = null;
+
+                if (mustPromote(piece, toRow)) {
+                    newBoard[toRow][toCol].promoted = true;
+                    setBoard(newBoard);
+                    switchPlayer();
+                } else if (!promote && canPromote(piece, toRow)) {
+                    setPromotionDialog({ row: toRow, col: toCol });
+                    setBoard(newBoard);
+                } else {
+                    if (promote) {
+                        newBoard[toRow][toCol].promoted = true;
+                    }
+                    setBoard(newBoard);
+                    switchPlayer();
+                }
+            }
+
+            function handlePromotion(promote) {
+                if (promotionDialog) {
+                    const newBoard = board.map(row => [...row]);
+                    if (promote) {
+                        newBoard[promotionDialog.row][promotionDialog.col].promoted = true;
+                    }
+                    setBoard(newBoard);
+                    setPromotionDialog(null);
+                    switchPlayer();
+                }
+            }
+
+            function dropPiece(pieceType, row, col) {
+                if (pieceType === 'P') {
+                    for (let r = 0; r < 9; r++) {
+                        const piece = board[r][col];
+                        if (piece && piece.type === 'P' && piece.player === currentPlayer && !piece.promoted) {
+                            alert('Нельзя ставить две пешки на одну вертикаль!');
+                            return;
+                        }
+                    }
+                }
+
+                if (currentPlayer === 'black') {
+                    if (pieceType === 'P' && row === 0) return;
+                    if (pieceType === 'L' && row === 0) return;
+                    if (pieceType === 'N' && (row === 0 || row === 1)) return;
+                } else {
+                    if (pieceType === 'P' && row === 8) return;
+                    if (pieceType === 'L' && row === 8) return;
+                    if (pieceType === 'N' && (row === 8 || row === 7)) return;
+                }
+
+                const newBoard = board.map(row => [...row]);
+                newBoard[row][col] = { type: pieceType, player: currentPlayer, promoted: false };
+
+                const newCaptured = { ...capturedPieces };
+                const index = newCaptured[currentPlayer].findIndex(p => p.type === pieceType);
+                if (index !== -1) {
+                    newCaptured[currentPlayer].splice(index, 1);
+                }
+
+                setBoard(newBoard);
+                setCapturedPieces(newCaptured);
+                setSelectedPiece(null);
+                setValidMoves([]);
+                switchPlayer();
+            }
+
+            function switchPlayer() {
+                const nextPlayer = currentPlayer === 'black' ? 'white' : 'black';
+                setCurrentPlayer(nextPlayer);
+                setGameStatus(nextPlayer === 'black' ? 'Ход чёрных' : 'Ход белых');
+            }
+
+            function handleCapturedPieceClick(pieceType) {
+                if (checkmate) return;
+                
+                if (selectedPiece && selectedPiece.fromHand) {
+                    setSelectedPiece(null);
+                    setValidMoves([]);
+                } else {
+                    setSelectedPiece({ fromHand: true, type: pieceType });
+                    const validDrops = [];
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            if (!board[r][c]) {
+                                validDrops.push([r, c]);
+                            }
+                        }
+                    }
+                    setValidMoves(validDrops);
+                }
+            }
+
+            function handleDropMove(row, col) {
+                if (selectedPiece && selectedPiece.fromHand) {
+                    dropPiece(selectedPiece.type, row, col);
+                }
+            }
+
+            useEffect(() => {
+                if (gameMode === 'pve' && currentPlayer === 'white' && gameStarted && !checkmate) {
+                    setTimeout(makeAIMove, 800);
+                }
+            }, [currentPlayer, gameMode, gameStarted, checkmate]);
+
+            function evaluateBoard(testBoard, player) {
+                let score = 0;
+                
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const piece = testBoard[r][c];
+                        if (piece) {
+                            let pieceValue = PIECES[piece.type].value;
+                            if (piece.promoted) pieceValue *= 1.3;
+                            
+                            if (piece.player === player) {
+                                score += pieceValue;
+                                if (player === 'white') {
+                                    score += (8 - r) * 5;
+                                } else {
+                                    score += r * 5;
+                                }
+                            } else {
+                                score -= pieceValue;
+                            }
+                        }
+                    }
+                }
+                
+                capturedPieces[player].forEach(p => {
+                    score += PIECES[p.type].value * 0.5;
+                });
+                
+                return score;
+            }
+
+            function makeAIMove() {
+                const allMoves = [];
+
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const piece = board[r][c];
+                        if (piece && piece.player === 'white') {
+                            const moves = getPieceMoves(piece, r, c);
+                            moves.forEach(([toRow, toCol]) => {
+                                if (isMoveLegal(r, c, toRow, toCol)) {
+                                    const testBoard = board.map(row => [...row]);
+                                    testBoard[toRow][toCol] = testBoard[r][c];
+                                    testBoard[r][c] = null;
+                                    
+                                    const score = evaluateBoard(testBoard, 'white');
+                                    const captureValue = board[toRow][toCol] ? PIECES[board[toRow][toCol].type].value : 0;
+                                    const promoteBonus = canPromote(piece, toRow) ? 200 : 0;
+                                    
+                                    allMoves.push({ 
+                                        from: [r, c], 
+                                        to: [toRow, toCol],
+                                        score: score + captureValue * 2 + promoteBonus,
+                                        promote: canPromote(piece, toRow)
+                                    });
+                                }
+                            });
+                        }
+                    }
+                }
+
+                capturedPieces.white.forEach(piece => {
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            if (!board[r][c]) {
+                                let valid = true;
+                                
+                                if (piece.type === 'P') {
+                                    for (let row = 0; row < 9; row++) {
+                                        const p = board[row][c];
+                                        if (p && p.type === 'P' && p.player === 'white' && !p.promoted) {
+                                            valid = false;
+                                            break;
+                                        }
+                                    }
+                                    if (r === 8) valid = false;
+                                }
+                                if (piece.type === 'L' && r === 8) valid = false;
+                                if (piece.type === 'N' && (r === 8 || r === 7)) valid = false;
+
+                                if (valid) {
+                                    const testBoard = board.map(row => [...row]);
+                                    testBoard[r][c] = { type: piece.type, player: 'white', promoted: false };
+                                    const score = evaluateBoard(testBoard, 'white');
+                                    
+                                    allMoves.push({
+                                        drop: true,
+                                        type: piece.type,
+                                        to: [r, c],
+                                        score: score + PIECES[piece.type].value * 0.3
+                                    });
+                                }
+                            }
+                        }
+                    }
+                });
+
+                if (allMoves.length > 0) {
+                    allMoves.sort((a, b) => b.score - a.score);
+                    
+                    const topMoves = allMoves.slice(0, Math.min(5, allMoves.length));
+                    const move = topMoves[Math.floor(Math.random() * topMoves.length)];
+                    
+                    if (move.drop) {
+                        dropPiece(move.type, move.to[0], move.to[1]);
+                    } else {
+                        const shouldPromote = move.promote && Math.random() > 0.2;
+                        makeMove(move.from[0], move.from[1], move.to[0], move.to[1], shouldPromote);
+                    }
+                }
+            }
+
+            function startNewGame() {
+                setBoard(initializeBoard());
+                setCurrentPlayer('black');
+                setSelectedPiece(null);
+                setValidMoves([]);
+                setCapturedPieces({ black: [], white: [] });
+                setGameStatus('Ход чёрных');
+                setPromotionDialog(null);
+                setGameStarted(true);
+                setInCheck(false);
+                setCheckmate(false);
+                setDraggedPiece(null);
+            }
+
+            function renderPiece(piece, row, col) {
+                if (!piece) return null;
+                const pieceInfo = PIECES[piece.type];
+                const display = piece.promoted ? pieceInfo.promoted : pieceInfo.display;
+                const isDragging = draggedPiece && draggedPiece.row === row && draggedPiece.col === col;
+                
+                return (
+                    <div 
+                        className={`piece ${piece.player} ${piece.promoted ? 'promoted' : ''} ${isDragging ? 'dragging' : ''}`}
+                        draggable={piece.player === currentPlayer && !checkmate}
+                        onDragStart={(e) => handleDragStart(e, row, col)}
+                        onDragEnd={handleDragEnd}
+                    >
+                        {display}
+                    </div>
+                );
+            }
+
+            function renderCell(row, col) {
+                const piece = board[row][col];
+                const isSelected = selectedPiece && !selectedPiece.fromHand && 
+                                   selectedPiece.row === row && selectedPiece.col === col;
+                const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
+                const isPromotionZoneBlack = row <= 2;
+                const isPromotionZoneWhite = row >= 6;
+                const isKingInCheckHere = inCheck && kingPosition[currentPlayer] && 
+                                         kingPosition[currentPlayer][0] === row && 
+                                         kingPosition[currentPlayer][1] === col;
+
+                return (
+                    <div
+                        key={`${row}-${col}`}
+                        className={`cell 
+                            ${isSelected ? 'selected' : ''} 
+                            ${isValidMove ? 'valid-move' : ''}
+                            ${isPromotionZoneBlack ? 'promotion-zone-black' : ''}
+                            ${isPromotionZoneWhite ? 'promotion-zone-white' : ''}
+                            ${isKingInCheckHere ? 'in-check' : ''}
+                        `}
+                        onClick={() => {
+                            if (selectedPiece && selectedPiece.fromHand) {
+                                handleDropMove(row, col);
+                            } else {
+                                handleCellClick(row, col);
+                            }
+                        }}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, row, col)}
+                    >
+                        {renderPiece(piece, row, col)}
+                    </div>
+                );
+            }
+
+            return (
+                <div className="app-container">
+                    <div className="header">
+                        <h1 className="title">将棋</h1>
+                        <p className="subtitle">Японские шахматы</p>
+                    </div>
+
+                    {!gameStarted ? (
+                        <div className="controls" style={{ margin: '0 auto', maxWidth: '400px' }}>
+                            <div className="control-group">
+                                <div className="control-label">Выберите режим игры</div>
+                                <div className="mode-selector">
+                                    <button 
+                                        className={`mode-button ${gameMode === 'pvp' ? 'active' : ''}`}
+                                        onClick={() => setGameMode('pvp')}
+                                    >
+                                        Игрок vs Игрок
+                                    </button>
+                                    <button 
+                                        className={`mode-button ${gameMode === 'pve' ? 'active' : ''}`}
+                                        onClick={() => setGameMode('pve')}
+                                    >
+                                        Игрок vs AI
+                                    </button>
+                                </div>
+                            </div>
+                            <button className="button" onClick={startNewGame}>
+                                Начать игру
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="game-container">
+                            <div className="board-section">
+                                <div className="player-info">
+                                    <div className="player-name">
+                                        <span className={`player-indicator ${currentPlayer === 'white' ? '' : 'inactive'}`}></span>
+                                        白 (Белые) {gameMode === 'pve' ? '- AI' : ''}
+                                    </div>
+                                    <div className="captured-pieces">
+                                        {capturedPieces.white.map((piece, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                className="mini-piece"
+                                                onClick={() => currentPlayer === 'white' && handleCapturedPieceClick(piece.type)}
+                                                style={{ cursor: currentPlayer === 'white' && !checkmate ? 'pointer' : 'default' }}
+                                            >
+                                                {PIECES[piece.type].display}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="board-wrapper">
+                                    <div className="board-coords top">
+                                        {[9, 8, 7, 6, 5, 4, 3, 2, 1].map(n => (
+                                            <span key={n}>{n}</span>
+                                        ))}
+                                    </div>
+                                    <div className="board-coords right">
+                                        {['一', '二', '三', '四', '五', '六', '七', '八', '九'].map((n, i) => (
+                                            <span key={i}>{n}</span>
+                                        ))}
+                                    </div>
+                                    <div className="board">
+                                        {board.map((row, rowIdx) => 
+                                            row.map((_, colIdx) => renderCell(rowIdx, colIdx))
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="player-info">
+                                    <div className="player-name">
+                                        <span className={`player-indicator ${currentPlayer === 'black' ? '' : 'inactive'}`}></span>
+                                        黒 (Чёрные)
+                                    </div>
+                                    <div className="captured-pieces">
+                                        {capturedPieces.black.map((piece, idx) => (
+                                            <div 
+                                                key={idx} 
+                                                className="mini-piece"
+                                                onClick={() => currentPlayer === 'black' && handleCapturedPieceClick(piece.type)}
+                                                style={{ cursor: currentPlayer === 'black' && !checkmate ? 'pointer' : 'default' }}
+                                            >
+                                                {PIECES[piece.type].display}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="controls">
+                                <div className={`status ${inCheck && !checkmate ? 'check' : ''} ${checkmate ? 'checkmate' : ''}`}>
+                                    {gameStatus}
+                                </div>
+                                
+                                <div className="control-group">
+                                    <div className="control-label">Управление</div>
+                                    <button className="button secondary" onClick={startNewGame}>
+                                        Новая игра
+                                    </button>
+                                </div>
+
+                                <div className="control-group">
+                                    <div className="control-label">Правила</div>
+                                    <div style={{ fontSize: '0.85rem', lineHeight: '1.6', opacity: 0.9 }}>
+                                        <p style={{ marginBottom: '8px' }}>• Кликните или перетащите фигуру</p>
+                                        <p style={{ marginBottom: '8px' }}>• Захваченные фигуры можно сбрасывать</p>
+                                        <p style={{ marginBottom: '8px' }}>• Фигуры превращаются в зоне противника</p>
+                                        <p style={{ marginBottom: '8px' }}>• Шах королю должен быть защищён</p>
+                                        <p>• Цель: поставить мат королю (王)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {promotionDialog && (
+                        <>
+                            <div className="overlay" onClick={() => handlePromotion(false)}></div>
+                            <div className="promotion-dialog">
+                                <h3>Превратить фигуру?</h3>
+                                <div className="promotion-options">
+                                    <button className="button" onClick={() => handlePromotion(true)}>
+                                        Да
+                                    </button>
+                                    <button className="button secondary" onClick={() => handlePromotion(false)}>
+                                        Нет
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ShogiGame />, document.getElementById('root'));
+    </script>
+</body>
+</html>
